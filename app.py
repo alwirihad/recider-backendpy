@@ -1,16 +1,18 @@
+import os
 from flask import Flask, request, jsonify
 import joblib
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.neighbors import NearestNeighbors
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 # Load the pre-trained model and vectorizer
-knn_model = joblib.load("knn_model.joblib")
-vectorizer = joblib.load('tfidf_vectorizer.joblib')
+knn_model = joblib.load("./models/knn_model.joblib")
+vectorizer = joblib.load('./models/tfidf_vectorizer.joblib')
 
-df = pd.read_csv(r'D:\recido.csv')
+csv_path = os.environ.get('CSV_PATH', './data/recido.csv')
+df = pd.read_csv(csv_path)
 
 
 # Endpoint for getting recipe recommendations
@@ -24,17 +26,13 @@ def recommend():
         data = request.get_json(force=True)
         user_ingredients = data.get('ingredients', '').split(', ')
 
-        # Handle input yang kosong
         if not user_ingredients:
             raise ValueError("Input ingredients tidak boleh kosong.")
 
-        # Transform input pengguna ke dalam format yang sama dengan dataset
         user_input = vectorizer.transform([" ".join(user_ingredients)])
 
-        # Prediksi resep terdekat berdasarkan input pengguna
         distances, indices = knn_model.kneighbors(user_input)
 
-        # Dapatkan rekomendasi berdasarkan indeks yang diberikan oleh model
         recommendations = get_recommendations(indices)
 
         output = {'recommendations': recommendations}
@@ -47,13 +45,10 @@ def recommend():
     return jsonify(output), status_code
 
 def get_recommendations(indices):
-    # Ambil indeks rekomendasi dari model
     recommended_indices = indices[0]
 
-    # Ambil data rekomendasi dari DataFrame df
     recommended_data = df.iloc[recommended_indices]
 
-    # Ubah struktur data sesuai kebutuhan
     recommendations = [{'Title': row['Title'], 'Ingredients': row['Ingredients'], 'Steps': row['Steps']} for _, row in recommended_data.iterrows()]
 
     return recommendations
