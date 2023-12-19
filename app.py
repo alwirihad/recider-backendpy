@@ -3,9 +3,10 @@ from flask import Flask, request, jsonify
 import pandas as pd
 import joblib
 import numpy as np
-
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 # Load the model and feature names
 model_data = joblib.load('recipe_knn_model.joblib')
@@ -20,8 +21,12 @@ def recommend_recipe():
     try:
         if not request.json or 'ingredients' not in request.json:
             return jsonify({"error": "Invalid input. 'ingredients' key is required in the JSON request."}), 400
+        
         user_input_ingredients = [ingredient.lower() for ingredient in request.json.get('ingredients', [])]
 
+        if user_input_ingredients and user_input_ingredients[0] == "":
+            return jsonify({"message": "Bahan makanan tidak dimasukkan."}), 400
+        
         filtered_df = recipes_df
 
         for ingredient in user_input_ingredients:
@@ -46,14 +51,10 @@ def recommend_recipe():
         indices = indices.flatten()
         indices = indices[indices < len(filtered_df)]
 
-        if len(indices) == 0:
-            return jsonify({"message": "Resep makanan tidak ditemukan."}), 404
-
         recommended_recipes = filtered_df.iloc[indices]
 
         response_data = {
-            "message": "Resep Direkomendasikan",
-            "recipes": recommended_recipes.to_dict(orient='records')
+            "recommendations": recommended_recipes.to_dict(orient='records')
         }
 
         return jsonify(response_data)
